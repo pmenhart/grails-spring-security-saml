@@ -68,7 +68,8 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 						def auths = UserRoleClass.findAllWhere(whereClause).collect { it.role }
 
 						auths.each { authority ->
-							grantedAuthorities.add(new GrantedAuthorityImpl(authority."$authorityNameField"))
+							def authorityValue = (authority instanceof String) ? authority : authority."$authorityNameField"
+							grantedAuthorities.add(new GrantedAuthorityImpl(authorityValue))
 
 						}
 					}
