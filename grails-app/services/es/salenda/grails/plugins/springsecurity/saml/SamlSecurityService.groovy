@@ -34,19 +34,21 @@ class SamlSecurityService extends SpringSecurityService {
 			userDetails = null
 		} else {
 			userDetails = getAuthentication().details
-			if ( config?.saml.autoCreate.active ) { 
-				userDetails =  getCurrentPersistedUser(userDetails)
+			if ( config?.saml.autoCreate.active) {
+				userDetails =  getCurrentPersistedUser(userDetails, config?.saml.autoCreate.key)
+			} else if ( config?.saml.userMustExist) {
+				userDetails =  getCurrentPersistedUser(userDetails, config?.userLookup.usernamePropertyName)
 			}
 		}
 		return userDetails
 	}
 	
-	private Object getCurrentPersistedUser(userDetails) {
+	private Object getCurrentPersistedUser(userDetails, userKey) {
 		if (userDetails) {
 			String className = config?.userLookup.userDomainClassName
-			String userKey = config?.saml.autoCreate.key
 			if (className && userKey) {
 				Class<?> userClass = grailsApplication.getDomainClass(className)?.clazz
+				// Why capitalize? SAML is case insensitive?
 				return userClass."findBy${userKey.capitalize()}"(userDetails."$userKey")
 			}
 		} else { return null}

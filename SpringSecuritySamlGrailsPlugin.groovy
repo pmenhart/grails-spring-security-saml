@@ -219,6 +219,7 @@ SAML 2.x support for the Spring Security Plugin
 			authorityClassName = conf.authority.className
 			authorityJoinClassName = conf.userLookup.authorityJoinClassName
 			authorityNameField = conf.authority.nameField
+			samlUserMustExist = conf.saml.userMustExist
 			samlAutoCreateActive = conf.saml.autoCreate.active
 			samlAutoAssignAuthorities = conf.saml.autoCreate.assignAuthorities
 			samlAutoCreateKey = conf.saml.autoCreate.key

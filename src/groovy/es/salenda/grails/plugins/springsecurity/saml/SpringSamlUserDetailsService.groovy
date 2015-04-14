@@ -34,6 +34,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 	String authorityClassName
 	String authorityJoinClassName
 	String authorityNameField
+	Boolean samlUserMustExist
 	Boolean samlAutoCreateActive
 	Boolean samlAutoAssignAuthorities = true
 	String samlAutoCreateKey
@@ -48,6 +49,12 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 			String username = getSamlUsername(credential)
 			if (!username) {
 				throw new UsernameNotFoundException("No username supplied in saml response.")
+			}
+
+			if (samlUserMustExist) {
+				// username must already be a valid user in local database.
+				//   SAML is used strictly for authentication: no attributes or roles are used
+				return loadUserByUsername(username, true)
 			}
 
 			def user = generateSecurityUser(username)

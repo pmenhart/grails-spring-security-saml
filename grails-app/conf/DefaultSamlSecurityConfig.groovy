@@ -8,6 +8,8 @@ security {
 		responseSkew = 60
 		maxAssertionTime = 3000
 		maxAuthenticationAge = 7200
+		// User must already exist in local database
+		userMustExist = false
 		autoCreate {
 			active =  false
 			key = 'username'
