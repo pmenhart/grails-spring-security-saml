@@ -1,6 +1,8 @@
 import grails.plugin.springsecurity.SpringSecurityUtils
 import grails.plugin.springsecurity.SecurityFilterPosition
-
+import org.jdom.Document
+import org.jdom.input.SAXBuilder
+import org.jdom.output.XMLOutputter
 import org.springframework.core.io.ClassPathResource;
 import grails.plugin.springsecurity.web.authentication.AjaxAwareAuthenticationFailureHandler
 import org.springframework.security.web.DefaultRedirectStrategy
@@ -150,57 +152,113 @@ SAML 2.x support for the Spring Security Plugin
 		}
 		
 		metadataGenerator(MetadataGenerator)
-			
-		// TODO: Update to handle any type of meta data providers for default to file based instead http provider.
-		log.debug "Dynamically defining bean metadata providers... "
-		def providerBeanName = "extendedMetadataDelegate"
-		conf.saml.metadata.providers.each {k,v ->
-				
-				println "Registering metadata key: ${k} and value: $v"
-				"${providerBeanName}"(ExtendedMetadataDelegate) { extMetaDataDelegateBean ->
-						def resource = new ClassPathResource(v)
-						filesystemMetadataProvider(FilesystemMetadataProvider) { bean ->
-							bean.constructorArgs = [resource.getFile()]
-							parserPool = ref('parserPool')
-						}
 
-						extMetaDataDelegateBean.constructorArgs = [ref('filesystemMetadataProvider'), new ExtendedMetadata()]
-				}
+        // TODO: Update to handle any type of meta data providers for default to file based instead http provider.
+        log.debug "Dynamically defining bean metadata providers... "
+        def providerBeanName = "extendedMetadataDelegate"
+        conf.saml.metadata.providers.each {k,v ->
 
-				providers << ref(providerBeanName)
-		}
-		
-		// you can only define a single service provider configuration
-		def spFile = conf.saml.metadata.sp.file
-		def defaultSpConfig = conf.saml.metadata.sp.defaults
-		if (spFile) {
-			
-			def spResource = new ClassPathResource(spFile)
-			spMetadata(ExtendedMetadataDelegate) { spMetadataBean ->
-				spMetadataProvider(FilesystemMetadataProvider) { spMetadataProviderBean ->
-					spMetadataProviderBean.constructorArgs = [spResource.getFile()]
-					parserPool = ref('parserPool')
-				}
+            println "Registering metadata key: ${k} and value: $v"
+            "${providerBeanName}"(ExtendedMetadataDelegate) { extMetaDataDelegateBean ->
+                filesystemMetadataProvider(FilesystemMetadataProvider) { bean ->
+                    if (v.startsWith("/") || v.indexOf(':') == 1) {
+                        File resource = new File(v)
+                        bean.constructorArgs = [resource]
+                    }else{
+                        def resource = new ClassPathResource(v)
+                        try{
+                            bean.constructorArgs = [resource.getFile()]
+                        }catch (FileNotFoundException fe){
+                            final InputStream is = resource.getInputStream();
+                            try {
+                                final InputStreamReader reader = new InputStreamReader(is);
+                                try {
+                                    final Document headerDoc = new SAXBuilder().build(reader);
+                                    XMLOutputter outputter = new XMLOutputter(Format.getPrettyFormat());
+                                    String xmlString = outputter.outputString(headerDoc);
+                                    File temp = File.createTempFile("idp-local",".xml");
+                                    BufferedWriter bw = new BufferedWriter(new FileWriter(temp));
+                                    bw.write(xmlString);
+                                    bw.close();
+                                    bean.constructorArgs = [temp]
+                                    temp.deleteOnExit();
+                                } finally {
+                                    reader.close();
+                                }
+                            } finally {
+                                is.close();
+                            }
+                        }
+                    }
+                    parserPool = ref('parserPool')
+                }
 
-				//TODO consider adding idp discovery default
-				spMetadataDefaults(ExtendedMetadata) { extMetadata ->
-					local = defaultSpConfig."local"
-					alias = defaultSpConfig."alias"
-					securityProfile = defaultSpConfig."securityProfile"
-					signingKey = defaultSpConfig."signingKey"
-					encryptionKey = defaultSpConfig."encryptionKey"
-					tlsKey = defaultSpConfig."tlsKey"
-					requireArtifactResolveSigned = defaultSpConfig."requireArtifactResolveSigned"
-					requireLogoutRequestSigned = defaultSpConfig."requireLogoutRequestSigned"
-					requireLogoutResponseSigned = defaultSpConfig."requireLogoutResponseSigned"
-				}
-				
-				spMetadataBean.constructorArgs = [ref('spMetadataProvider'), ref('spMetadataDefaults')]
-			}
-			
-			providers << ref('spMetadata')
-		}
-		
+                extMetaDataDelegateBean.constructorArgs = [ref('filesystemMetadataProvider'), new ExtendedMetadata()]
+            }
+
+            providers << ref(providerBeanName)
+        }
+
+// you can only define a single service provider configuration
+        def spFile = conf.saml.metadata.sp.file
+        def defaultSpConfig = conf.saml.metadata.sp.defaults
+        if (spFile) {
+
+            spMetadata(ExtendedMetadataDelegate) { spMetadataBean ->
+                spMetadataProvider(FilesystemMetadataProvider) { spMetadataProviderBean ->
+                    if (spFile.startsWith("/") || spFile.indexOf(':') == 1) {
+                        File spResource = new File(spFile)
+                        spMetadataProviderBean.constructorArgs = [spResource]
+                    }else{
+                        def spResource = new ClassPathResource(spFile)
+                        try{
+                            spMetadataProviderBean.constructorArgs = [spResource.getFile()]
+                        } catch(FileNotFoundException fe){
+                            final InputStream is = spResource.getInputStream();
+                            try {
+                                final InputStreamReader reader = new InputStreamReader(is);
+                                try {
+                                    final Document headerDoc = new SAXBuilder().build(reader);
+                                    XMLOutputter outputter = new XMLOutputter(Format.getPrettyFormat());
+                                    String xmlString = outputter.outputString(headerDoc);
+                                    File temp = File.createTempFile("sp-local",".xml");
+                                    BufferedWriter bw = new BufferedWriter(new FileWriter(temp));
+                                    bw.write(xmlString);
+                                    bw.close();
+                                    spMetadataProviderBean.constructorArgs = [temp]
+                                    temp.deleteOnExit();
+                                } finally {
+                                    reader.close();
+                                }
+                            } finally {
+                                is.close();
+                            }
+
+                        }
+                    }
+
+                    parserPool = ref('parserPool')
+                }
+
+                //TODO consider adding idp discovery default
+                spMetadataDefaults(ExtendedMetadata) { extMetadata ->
+                    local = defaultSpConfig."local"
+                    alias = defaultSpConfig."alias"
+                    securityProfile = defaultSpConfig."securityProfile"
+                    signingKey = defaultSpConfig."signingKey"
+                    encryptionKey = defaultSpConfig."encryptionKey"
+                    tlsKey = defaultSpConfig."tlsKey"
+                    requireArtifactResolveSigned = defaultSpConfig."requireArtifactResolveSigned"
+                    requireLogoutRequestSigned = defaultSpConfig."requireLogoutRequestSigned"
+                    requireLogoutResponseSigned = defaultSpConfig."requireLogoutResponseSigned"
+                }
+
+                spMetadataBean.constructorArgs = [ref('spMetadataProvider'), ref('spMetadataDefaults')]
+            }
+
+            providers << ref('spMetadata')
+        }
+
 		metadata(CachingMetadataManager) { metadataBean ->
 			// At this point, due to Spring DSL limitations, only one provider 
 			// can be defined so just picking the first one
