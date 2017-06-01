@@ -29,6 +29,8 @@ grails.project.dependency.resolution = {
                     'spring-security-core', 'spring-test', 'spring-tx', 'spring-web', 'spring-webmvc',
                     'tomcat-servlet-api'
         }
+
+        compile "org.jdom:jdom-legacy:1.1.3"
     }
 
     plugins {

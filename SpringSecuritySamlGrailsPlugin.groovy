@@ -3,6 +3,7 @@ import grails.plugin.springsecurity.SecurityFilterPosition
 import org.jdom.Document
 import org.jdom.input.SAXBuilder
 import org.jdom.output.XMLOutputter
+import org.jdom.output.Format
 import org.springframework.core.io.ClassPathResource;
 import grails.plugin.springsecurity.web.authentication.AjaxAwareAuthenticationFailureHandler
 import org.springframework.security.web.DefaultRedirectStrategy
