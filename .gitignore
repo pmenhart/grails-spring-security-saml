@@ -14,5 +14,6 @@ web-app/
 *.ipr
 *.iml
 .idea
+.slcache
 /grails-app/conf/mavenInfo.groovy
 cobertura.ser
