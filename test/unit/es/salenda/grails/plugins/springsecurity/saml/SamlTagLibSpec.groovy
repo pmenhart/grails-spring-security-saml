@@ -103,7 +103,7 @@ class SamlTagLibSpec extends Specification {
 
     private void mockConfig(boolean samlActive = true) {
         SamlTagLib.metaClass.getGrailsApplication = { ->
-            return [config: [grails: [plugins: [springsecurity: [saml: [active: samlActive]]]]]]
+            return [config: [grails: [plugin: [springsecurity: [saml: [active: samlActive]]]]]]
         }
     }
 }

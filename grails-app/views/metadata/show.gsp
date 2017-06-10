@@ -7,7 +7,7 @@
 	<body>
 		<div style="margin-left: 20px;">
 			<h1>Metadata - ${extendedMetadata.alias?:entityDescriptor.entityID}</h1>
-			<p><a href="${request.contextPath}${grailsApplication.config.grails.plugins.springsecurity.saml.metadata.url}/${extendedMetadata.alias?'alias/'+extendedMetadata.alias:''}">Download Metadata</a></p>
+			<p><a href="${request.contextPath}${grailsApplication.config.grails.plugin.springsecurity.saml.metadata.url}/${extendedMetadata.alias?'alias/'+extendedMetadata.alias:''}">Download Metadata</a></p>
 			<br/>
 			<h2>Properties</h2>
 			<ul>
@@ -36,10 +36,10 @@
 	                <li>
 						Update your Config.groovy and add the following lines:
 						<code>
-							grails.plugins.springsecurity.saml.metadata.sp.file = 'security/${storagePath}'
+							grails.plugin.springsecurity.saml.metadata.sp.file = 'security/${storagePath}'
 						</code>
 						<code>
-						grails.plugins.springsecurity.saml.metadata.sp.defaults = [
+						grails.plugin.springsecurity.saml.metadata.sp.defaults = [
 					local: true, 
 					alias: 'test',
 					securityProfile: 'metaiop',
