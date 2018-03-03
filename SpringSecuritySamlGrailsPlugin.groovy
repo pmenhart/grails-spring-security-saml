@@ -1,3 +1,4 @@
+import es.salenda.grails.plugins.springsecurity.saml.CustomSAMLBootstrap
 import grails.plugin.springsecurity.SpringSecurityUtils
 import grails.plugin.springsecurity.SecurityFilterPosition
 import org.jdom.Document
@@ -11,7 +12,6 @@ import org.springframework.security.web.authentication.SavedRequestAwareAuthenti
 import org.springframework.security.web.authentication.logout.SimpleUrlLogoutSuccessHandler
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler
 import org.springframework.security.web.authentication.session.SessionFixationProtectionStrategy
-import org.springframework.security.saml.SAMLBootstrap
 import org.springframework.security.saml.SAMLEntryPoint
 import org.springframework.security.saml.SAMLProcessingFilter
 import org.springframework.security.saml.SAMLLogoutFilter
@@ -51,7 +51,7 @@ import org.apache.commons.httpclient.HttpClient
 
 class SpringSecuritySamlGrailsPlugin {
     // the plugin version
-    def version = "1.2.0-3"
+    def version = "1.2.0-4"
     // the version or versions of Grails the plugin is designed for
     def grailsVersion = "2.3 > *"
     // the other plugins this plugin depends on
@@ -361,8 +361,8 @@ SAML 2.x support for the Spring Security Plugin
 		
 		paosBinding(HTTPPAOS11Binding, ref('parserPool'))
 		
-		bootStrap(SAMLBootstrap)
-		
+		bootStrap(CustomSAMLBootstrap)
+
 		velocityEngine(VelocityFactory) { bean ->
 			bean.factoryMethod = "getEngine"
 		}

@@ -18,7 +18,7 @@ grails.project.dependency.resolution = {
     dependencies {
 
         String springSecurityVersion = '3.2.8.RELEASE'
-        String springSecuritySAMLVersion = '1.0.2.RELEASE'
+        String springSecuritySAMLVersion = '1.0.3.RELEASE'
 
         compile "org.springframework.security.extensions:spring-security-saml2-core:$springSecuritySAMLVersion"
         compile "org.springframework.security:spring-security-web:$springSecurityVersion", {
@@ -38,8 +38,7 @@ grails.project.dependency.resolution = {
 
         test ":code-coverage:1.2.5"
 
-        compile(":spring-security-core:2.0-RC5")
-
+        compile ":spring-security-core:2.0.0"
         compile(":build-test-data:2.2.1",
                 ":hibernate:3.6.10.17") {
             export = false
