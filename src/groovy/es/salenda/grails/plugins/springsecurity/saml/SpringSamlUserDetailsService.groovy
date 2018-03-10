@@ -14,22 +14,25 @@
  */
 package es.salenda.grails.plugins.springsecurity.saml
 
+import grails.plugin.springsecurity.SpringSecurityUtils
 import grails.plugin.springsecurity.userdetails.GormUserDetailsService
+import grails.plugin.springsecurity.userdetails.NoStackUsernameNotFoundException
+import grails.transaction.Transactional
 import org.springframework.beans.BeanUtils
 import org.springframework.security.core.GrantedAuthority
 import org.springframework.security.core.authority.GrantedAuthorityImpl
 import org.springframework.security.core.userdetails.UsernameNotFoundException
 import org.springframework.security.saml.SAMLCredential
 import org.springframework.security.saml.userdetails.SAMLUserDetailsService
-import org.springframework.dao.DataAccessException
 
 /**
- * A {@link GormUserDetailsService} extension to read attributes from a LDAP-backed 
+ * A {@link GormUserDetailsService} extension to read attributes from a LDAP-backed
  * SAML identity provider. It also reads roles from database
  *
  * @author alvaro.sanchez
  */
 class SpringSamlUserDetailsService extends GormUserDetailsService implements SAMLUserDetailsService {
+
 	// Spring bean injected configuration parameters
 	String authorityClassName
 	String authorityJoinClassName
@@ -43,6 +46,11 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 	String samlUserGroupAttribute
 	String userDomainClassName
 
+	def conf = SpringSecurityUtils.securityConfig // should this be injected as well?
+
+	private Class<?> userDomainClass = null // User domain class, cached for performance
+
+
 	public Object loadUserBySAML(SAMLCredential credential) throws UsernameNotFoundException {
 
 		if (credential) {
@@ -51,19 +59,33 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 				throw new UsernameNotFoundException("No username supplied in saml response.")
 			}
 
-			if (samlUserMustExist) {
+			// If this user exists, then we want to use the persisted version with proper roles
+			def user = loadUserDomainByUsername(username)
+			if (samlUserMustExist && user == null) {
 				// username must already be a valid user in local database.
 				//   SAML is used strictly for authentication: no attributes or roles are used
-				return loadUserByUsername(username, true)
+				log.warn "User not found: $username"
+				throw new NoStackUsernameNotFoundException()
 			}
 
-			def user = generateSecurityUser(username)
+			// TODO: if user locked/expired/not enabled then throw exception?
+			// Alternative: the caller has to arrange the check, e.g. using AccountStatusUserDetailsChecker
+			// Another alternative: loadUserDomainByUsername() does not return disabled users:
+			//     They are still created, but only as transient users.
+			// Proper logic depends on application scenarios, many variants are possible.
+
+			def grantedAuthorities = user ? loadAuthorities(user, username, true) : []
+			if (user == null) {
+				user = generateSecurityUser(username)
+			}
+
+			// Update attributes and roles from SAML. FUTURE: configurable option to use SAML only for authentication
 			user = mapAdditionalAttributes(credential, user)
 			if (user) {
 				log.debug "Loading database roles for $username..."
 				def authorities = getAuthoritiesForUser(credential)
 
-				def grantedAuthorities = []
+
 				if (samlAutoCreateActive) {
 					user = saveUser(user.class, user, authorities)
 
@@ -82,7 +104,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 					}
 				}
 				else {
-					grantedAuthorities = authorities
+					grantedAuthorities.addAll(authorities)
 				}
 
 				return createUserDetails(user, grantedAuthorities)
@@ -146,7 +168,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 
 	/**
 	 * Extract the groups that the user is a member of from the saml assertion.
-	 * Expects the saml.userGroupAttribute to specify the saml assertion attribute that holds 
+	 * Expects the saml.userGroupAttribute to specify the saml assertion attribute that holds
 	 * returned group membership data.
 	 *
 	 * Expects the group strings to be of the format "CN=groupName,someOtherParam=someOtherValue"
@@ -182,6 +204,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 			Class<?> UserClass = grailsApplication.getDomainClass(userDomainClassName)?.clazz
 			if (UserClass) {
 				def user = BeanUtils.instantiateClass(UserClass)
+				// FUTURE: replace hardwired field names with conf.userLookup.usernamePropertyName and passwordPropertyName
 				user.username = username
 				user.password = "password"
 				return user
@@ -191,6 +214,35 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 		} else {
 			throw new ClassNotFoundException("security user domain class undefined")
 		}
+	}
+
+	/** User domain class is application specific (cannot be statically linked in the plugin),
+	 *   but is defined in the configuration, retrieved dynamically via Grails wizardry,
+	 *   and cached for efficiency.
+	 */
+	Class getUserDomainClass() {
+		if (!userDomainClass) {
+			String userClassName = conf.userLookup.userDomainClassName
+			def dc = grailsApplication.getDomainClass(userClassName)
+			if (!dc) {
+				throw new IllegalArgumentException("The specified user domain class '$userClassName' is not a domain class")
+			}
+			userDomainClass = dc.clazz
+		}
+		return userDomainClass
+	}
+
+	/** Get user domain object.
+	 *
+	 * @param username
+	 * @return null if user not found
+	 */
+	@Transactional(readOnly=true, noRollbackFor=[IllegalArgumentException])
+	def loadUserDomainByUsername(String username) {
+
+		Class<?> User = getUserDomainClass()
+
+		def user = User.findWhere((conf.userLookup.usernamePropertyName): username)
 	}
 
 	private def saveUser(userClazz, user, authorities) {
