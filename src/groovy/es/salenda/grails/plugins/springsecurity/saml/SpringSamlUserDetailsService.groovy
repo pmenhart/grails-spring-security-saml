@@ -116,7 +116,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 
 	protected String getSamlUsername(credential) {
 
-		if (samlUserAttributeMappings?.username) {
+		if (samlUserAttributeMappings?.containsKey('username')) {
 
 			return credential.getAttributeAsString(samlUserAttributeMappings.username)
 		} else {
@@ -126,7 +126,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 	}
 
 	protected Object mapAdditionalAttributes(credential, user) {
-		samlUserAttributeMappings.each { key, value ->
+		samlUserAttributeMappings?.each { key, value ->
 			// Note that check "user."$key" instanceof String" will fail when field value is null.
 			//  Instead, we have to check field type
 			Class keyType = grailsApplication.getDomainClass(userDomainClassName).properties.find { prop -> prop.name == "$key" }.type
