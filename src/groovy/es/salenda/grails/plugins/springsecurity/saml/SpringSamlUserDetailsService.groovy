@@ -255,7 +255,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 			userClazz.withTransaction {
 				def existingUser = userClazz.findWhere(whereClause)
 				if (!existingUser) {
-					if (!user.save()) {
+					if (!saveUserInternal(user)) {
 						def save_errors=""
 						user.errors.each {
 							save_errors+=it
@@ -268,7 +268,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 					if (samlAutoAssignAuthorities) {
 						joinClass.removeAll user
 					}
-					user.save()
+					saveUserInternal(user)
 				}
 				if (samlAutoAssignAuthorities) {
 					authorities.each { grantedAuthority ->
@@ -280,6 +280,13 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 			}
 		}
 		return user
+	}
+
+	/** Insert or update the user object. Return true if successful
+	 *  This method gives derived classes chance for additional processing before or after save()
+	 */
+	protected def saveUserInternal(user) {
+		user.save()
 	}
 
 	private Object updateUserProperties(existingUser, user) {
