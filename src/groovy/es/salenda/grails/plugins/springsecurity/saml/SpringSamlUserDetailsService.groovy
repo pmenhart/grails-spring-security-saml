@@ -46,8 +46,6 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 	String samlUserGroupAttribute
 	String userDomainClassName
 
-	def conf = SpringSecurityUtils.securityConfig // should this be injected as well?
-
 	private Class<?> userDomainClass = null // User domain class, cached for performance
 
 
@@ -83,7 +81,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 			user = mapAdditionalAttributes(credential, user)
 			if (user) {
 				log.debug "Loading database roles for $username..."
-				def authorities = getAuthoritiesForUser(credential)
+				def authorities = getSamlMappedAuthoritiesForUser(credential)
 
 
 				if (samlAutoCreateActive) {
@@ -102,6 +100,12 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 
 						}
 					}
+					if (samlUserGroupAttribute && !samlAutoAssignAuthorities
+							&& !(authorities.size() == 1 && authorities.contains(GormUserDetailsService.NO_ROLE))) {
+						// If the user can be persisted, but SAML mapped roles should be transient
+						grantedAuthorities.addAll(authorities)
+					}
+
 				}
 				else {
 					grantedAuthorities.addAll(authorities)
@@ -146,7 +150,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 		user
 	}
 
-	protected Collection<GrantedAuthority> getAuthoritiesForUser(SAMLCredential credential) {
+	protected Collection<GrantedAuthority> getSamlMappedAuthoritiesForUser(SAMLCredential credential) {
 		Set<GrantedAuthority> authorities = new HashSet<GrantedAuthorityImpl>()
 
 		def samlGroups = getSamlGroups(credential)
@@ -199,7 +203,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 		userGroups
 	}
 
-	private Object generateSecurityUser(username) {
+	protected Object generateSecurityUser(username) {
 		if (userDomainClassName) {
 			Class<?> UserClass = grailsApplication.getDomainClass(userDomainClassName)?.clazz
 			if (UserClass) {
@@ -222,6 +226,7 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 	 */
 	Class getUserDomainClass() {
 		if (!userDomainClass) {
+			def conf = SpringSecurityUtils.securityConfig
 			String userClassName = conf.userLookup.userDomainClassName
 			def dc = grailsApplication.getDomainClass(userClassName)
 			if (!dc) {
@@ -241,11 +246,11 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 	def loadUserDomainByUsername(String username) {
 
 		Class<?> User = getUserDomainClass()
-
+		def conf = SpringSecurityUtils.securityConfig
 		def user = User.findWhere((conf.userLookup.usernamePropertyName): username)
 	}
 
-	private def saveUser(userClazz, user, authorities) {
+	protected def saveUser(userClazz, user, authorities) {
 		if (userClazz && samlAutoCreateActive && samlAutoCreateKey && authorityNameField && authorityJoinClassName) {
 
 			Map whereClause = [:]
@@ -289,14 +294,14 @@ class SpringSamlUserDetailsService extends GormUserDetailsService implements SAM
 		user.save()
 	}
 
-	private Object updateUserProperties(existingUser, user) {
+	protected Object updateUserProperties(existingUser, user) {
 		samlUserAttributeMappings.each { key, value ->
 			existingUser."$key" = user."$key"
 		}
 		return existingUser
 	}
 
-	private Object getRole(String authority) {
+	protected Object getRole(String authority) {
 		if (authority && authorityNameField && authorityClassName) {
 			Class<?> Role = grailsApplication.getDomainClass(authorityClassName).clazz
 			if (Role) {
